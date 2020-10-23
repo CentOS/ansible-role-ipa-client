@@ -1,1 +1,49 @@
 # Defaults tasks for role ipa-client
+
+- name: Installing required IPA client pkg
+  yum:
+    name: ipa-client
+    state: installed
+
+- name: Enrolling node in IPA - DNS SRV lookup mode
+  command:
+    cmd: "ipa-client-install
+         --domain={{ ipa_client_domain }}
+         --realm={{ ipa_client_realm}}
+         --principal={{ ipa_client_enroll_user }}
+         --password={{ ipa_client_enroll_pass }}
+         --mkhomedir
+         --no-ntp
+         --unattended
+         --log-file=/var/log/ipa-ansible-enroll.log
+         "
+    creates: /etc/ipa/default.conf
+  no_log: True
+  when: ipa_client_use_dns  
+  register: enrolled
+
+- name: Enrolling node in IPA - manual/declared server mode
+  command:
+    cmd: "ipa-client-install
+         --domain={{ ipa_client_domain }}
+         --realm={{ ipa_client_realm}}
+         --principal={{ ipa_client_enroll_user }}
+         --password={{ ipa_client_enroll_pass }}
+         --mkhomedir
+         --no-ntp
+         --unattended
+         --log-file=/var/log/ipa-ansible-enroll.log
+         --fixed-primary
+         --server={{ ipa_client_server }}
+         "
+    creates: /etc/ipa/default.conf
+  no_log: True
+  when: not ipa_client_use_dns  
+  register: enrolled
+
+- name: Cleaning up ipa install log
+  file:
+    path: /var/log/ipa-ansible-enroll.log
+    state: absent
+  when: enrolled is not failed  
+

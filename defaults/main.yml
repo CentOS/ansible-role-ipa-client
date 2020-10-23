@@ -1,1 +1,18 @@
 # Defaults variables for role ipa-client
+
+# Needed to enrolled inventory_hostname in IPA
+# User that has enough rights (like "Role: Enrollment Administrator"), but doesn't have to be full "admin" in IPA
+# Please note that this role needs also one more permission: "System: Add Hosts" to let it create and enroll nodes (if we don't want to pre-populate it in IPA)
+# For the record: ipa privilege-add-permission 'Host Enrollment' --permissions='System: Add Hosts'
+ipa_client_enroll_user: enroll_user
+ipa_client_enroll_pass: bla
+
+# Domain and REALM to join
+ipa_client_domain: dev.centos.org
+ipa_client_realm: DEV.CENTOS.ORG
+
+# Do we want to rely on DNS to find IPA (through SRV records), which *should* be the default ?
+ipa_client_use_dns: True
+
+# If we set DNS to false, we have to know at least one IPA server to join the REALM
+ipa_client_server: ipa-1.dev.centos.org
