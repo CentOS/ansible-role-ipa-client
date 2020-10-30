@@ -8,6 +8,7 @@
 - name: Enrolling node in IPA - DNS SRV lookup mode
   command:
     cmd: "ipa-client-install
+         --hostname={{ inventory_hostname }}
          --domain={{ ipa_client_domain }}
          --realm={{ ipa_client_realm}}
          --principal={{ ipa_client_enroll_user }}
@@ -25,6 +26,7 @@
 - name: Enrolling node in IPA - manual/declared server mode
   command:
     cmd: "ipa-client-install
+         --hostname={{ inventory_hostname }}
          --domain={{ ipa_client_domain }}
          --realm={{ ipa_client_realm}}
          --principal={{ ipa_client_enroll_user }}
@@ -41,9 +43,15 @@
   when: not ipa_client_use_dns  
   register: enrolled
 
-- name: Cleaning up ipa install log
-  file:
-    path: /var/log/ipa-ansible-enroll.log
-    state: absent
+- block:
+    - name: Cleaning up ipa install log
+      file:
+        path: /var/log/ipa-ansible-enroll.log
+        state: absent
   when: enrolled is not failed  
+
+- pause:
+    prompt: "Waiting to ensure node is properly enrolled and replicated between IPA servers"
+    seconds: 25
+  when: enrolled is changed  
 
