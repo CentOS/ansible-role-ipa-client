@@ -55,3 +55,14 @@
     seconds: 25
   when: enrolled is changed  
 
+- name: Tuning sssd for large deployments
+  blockinfile:
+    path: /etc/sssd/sssd.conf
+    insertafter: "krb5_store_password_if_offline = True"
+    block: |
+      ldap_deref_threshold = 0
+
+  notify:
+    - restart_sssd
+  tags:
+    - sssd
