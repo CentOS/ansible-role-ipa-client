@@ -2,7 +2,7 @@
 
 - name: Installing required IPA client pkg
   yum:
-    name: ipa-client
+    name: ['ipa-client', 'krb5-pkinit']
     state: installed
 
 - name: Enrolling node in IPA - DNS SRV lookup mode
@@ -66,3 +66,26 @@
     - restart_sssd
   tags:
     - sssd
+
+- name: Ensuring we have a local 2fa-kinit wrapper script for OTP
+  template:
+    src: 2fa-kinit.j2
+    dest: /usr/local/bin/2fa-kinit
+    mode: '0755'
+
+- block:
+    - name: Ensuring we have a place holder for TLS certs retrieved from IPA (if enabled)
+      file:
+        path: /etc/pki/centos
+        state: directory
+        owner: root
+        group: admins
+        mode: '0750'
+
+    - name: Wrapper script to enroll/retrieve TLS/keytab for non enrolled nodes through delegation
+      template:
+        src: generate_ipa_tls_krb5.j2
+        dest: /usr/libexec/centos/generate_ipa_tls_krb5
+        mode: '0755'
+
+  when: ipa_client_tls_delegated_host 

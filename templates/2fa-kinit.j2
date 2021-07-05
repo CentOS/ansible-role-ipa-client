@@ -1,0 +1,6 @@
+#!/bin/bash
+pushd ~ >/dev/null
+echo "Initializing kinit for {{ ipa_client_realm }} REALM and asking for password + OTP combination ..."
+kinit -n @{{ ipa_client_realm }} -c FILE:armor.ccache && kinit -T FILE:armor.ccache ${USER}@{{ ipa_client_realm }}
+echo "Kerberos tickets now in cache:"
+klist -A

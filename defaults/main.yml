@@ -16,3 +16,7 @@ ipa_client_use_dns: True
 
 # If we set DNS to false, we have to know at least one IPA server to join the REALM
 ipa_client_server: ipa-1.dev.centos.org
+
+# Is that a node on which we'll retrieve TLS certs from IPA (and redistribute with ansible through pkistore)
+# We'll distribute one wrapper script to enroll/renew TLS from IPA/Dogtag if enabled
+ipa_client_tls_delegated_host: False

@@ -1,0 +1,92 @@
+#!/bin/bash
+# creating but not enrolling
+# adding host but one needs "kinit first for these to work !"
+
+# Some default variables for our script to work
+# Basically REALM and host we'll delegate management too (permits to retrieve tls cert for non enrolled nodes)
+ipa_realm="{{ ipa_client_realm }}"
+managed_by=$(hostname)
+
+function usage() {
+cat << EOF
+
+You need to call the script like this : $0 -arguments
+ -n : node name / fqdn ([REQUIRED], example 'ppc64-01.cbs.centos.org')
+ -d : Description for that host ([REQUIRED], example 'cbs koji builder')
+ -s : service for principal ([REQUIRED], example 'compile' would create compile/ppc64-01.cbs.centos.org service in IPA)
+ -h : display this help
+
+You also need a valid kerberos ticket otherwise script will exit
+EOF
+
+}
+
+
+function varcheck() {
+if [ -z "$1" ] ; then
+        usage
+        exit 1
+fi
+}
+
+function f_log() {
+	echo "[+] $(date +%Y%m%d-%H:%M) $(basename $0) -> $*" 
+}
+
+
+# Parsing args
+while getopts "hn:d:s:" option
+do
+  case ${option} in
+    h)
+      usage
+      exit 1
+      ;;
+    n)
+      node_fqdn=${OPTARG}
+      ;;
+    d)
+      node_description=${OPTARG}
+      ;;
+    s)
+      node_service=${OPTARG}
+      ;;
+    ?)
+      usage
+      exit
+      ;;
+  esac
+done
+
+varcheck $node_fqdn
+varcheck $node_description
+varcheck $node_service
+
+klist -s
+if [ "$?" -ne "0" ] ;then
+  echo "[+] no valid kerberos ticked found in cache, so kinit first ..."
+  echo "[+] Exiting ..."
+  exit 1
+fi
+
+echo "[+] Adding host in IPA and adding delegation to retrieve certs/keytab ..."
+ipa host-add --desc="${node_description}" --no-reverse --force ${node_fqdn}
+ipa host-add-managedby ${node_fqdn}  --hosts=${managed_by}
+ipa service-add --force ${node_service}/${node_fqdn}
+ipa service-add-host ${node_service}/${node_fqdn}@${ipa_realm} --hosts=${managed_by}
+ipa host-allow-retrieve-keytab ${node_fqdn} --hosts=${managed_by}
+ipa service-allow-retrieve-keytab ${node_service}/${node_fqdn}@${ipa_realm} --hosts=${managed_by}
+
+# Now acting as delegated node, as certmonger is using host keytab for next actions
+echo "[+] Retrieving TLS and keytab files ..."
+sudo ipa-getcert request -k /etc/pki/tls/private/${node_fqdn}.key -f /etc/pki/tls/certs/${node_fqdn}.crt -D ${node_fqdn} -N CN=${node_fqdn}  -K ${node_service}/${node_fqdn} -w
+test -e /etc/pki/centos/certs || sudo mkdir -p /etc/pki/centos/certs
+sudo kinit -k
+sudo ipa-getkeytab -k /etc/pki/centos/certs/${node_service}-${node_fqdn}.keytab -p ${node_service}/${node_fqdn}@${ipa_realm}
+sudo cp /etc/pki/tls/private/${node_fqdn}.key /etc/pki/centos/certs/
+sudo cp /etc/pki/tls/certs/${node_fqdn}.crt /etc/pki/centos/certs/
+sudo chown -R $USER /etc/pki/centos/certs/
+echo "[+] Validating TLS against IPA CA ..."
+test -e /etc/pki/centos/certs/ca.crt || sudo cp /etc/ipa/ca.crt /etc/pki/centos/certs/ca.crt
+openssl verify -CAfile /etc/pki/centos/certs/ca.crt /etc/pki/centos/certs/${node_fqdn}.crt
+
