@@ -87,5 +87,11 @@
         src: generate_ipa_tls_krb5.j2
         dest: /usr/libexec/centos/generate_ipa_tls_krb5
         mode: '0755'
+    
+    - name: Ensuring certmonger service is started to watch/renew TLS certs
+      service:
+        name: certmonger
+        state: started
+        enabled: True
 
   when: ipa_client_tls_delegated_host 
